@@ -1,9 +1,7 @@
-import { DroneMonitor } from "@/components/drone-monitor"
+import { DroneLayout } from "@/components/drone-layout"
+import "leaflet/dist/leaflet.css"
+
 
 export default function Page() {
-  return (
-    <main className="min-h-screen bg-background p-4 md:p-8">
-      <DroneMonitor />
-    </main>
-  )
+  return <DroneLayout />
 }

@@ -1,26 +1,14 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { useState } from "react"
 import { Battery, Wifi, Satellite, Gauge, MapPin, Clock } from "lucide-react"
 import { useTelemetry } from "./useTelemetry"
 
-interface DroneStats {
-  battery: number
-  connection: "connected" | "disconnected" | "weak"
-  satellites: number
-  altitude: number
-  speed: number
-  latitude: number
-  longitude: number
-  flightTime: number
-}
+export function DroneMonitorReplica() {
+  // 🔹 Obtener datos de telemetría
+  const stats = useTelemetry()
 
-export function DroneMonitor() {
- 
-const stats = useTelemetry()
-
-
+  // 🔹 Funciones auxiliares (mismo comportamiento que en el original)
   const getBatteryColor = (battery: number) => {
     if (battery > 50) return "text-chart-3"
     if (battery > 20) return "text-chart-4"
@@ -39,12 +27,15 @@ const stats = useTelemetry()
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
+  // 🔹 Renderizado (idéntico al original, solo cambia el título)
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mono text-3xl font-bold tracking-tight text-foreground">Monitor de Dron</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Estadísticas en tiempo real</p>
+          <h1 className="font-mono text-3xl font-bold tracking-tight text-foreground">
+            Monitor de Dron — Réplica
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">Estadísticas en tiempo real (vista alternativa)</p>
         </div>
         <div className="flex items-center gap-2">
           <div
@@ -58,6 +49,7 @@ const stats = useTelemetry()
         </div>
       </div>
 
+      {/* ---- Tarjetas principales ---- */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-border bg-card p-6">
           <div className="flex items-center justify-between">
@@ -97,13 +89,16 @@ const stats = useTelemetry()
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Tiempo de Vuelo</p>
-              
+              <p className="font-mono text-3xl font-bold text-accent">
+                
+              </p>
             </div>
             <Clock className="h-8 w-8 text-accent" />
           </div>
         </Card>
       </div>
 
+      {/* ---- Datos de vuelo ---- */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-border bg-card p-6">
           <h2 className="mb-4 font-mono text-lg font-semibold text-foreground">Datos de Vuelo</h2>
@@ -113,14 +108,18 @@ const stats = useTelemetry()
                 <Gauge className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Altitud</span>
               </div>
-              <span className="font-mono text-lg font-semibold text-foreground">{stats.altitude.toFixed(2)} m</span>
+              <span className="font-mono text-lg font-semibold text-foreground">
+                {stats.altitude.toFixed(2)} m
+              </span>
             </div>
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-3">
                 <Gauge className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Velocidad</span>
               </div>
-              <span className="font-mono text-lg font-semibold text-foreground">{stats.speed.toFixed(2)} m/s</span>
+              <span className="font-mono text-lg font-semibold text-foreground">
+                {stats.speed.toFixed(2)} m/s
+              </span>
             </div>
           </div>
         </Card>
@@ -133,14 +132,18 @@ const stats = useTelemetry()
                 <MapPin className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Latitud</span>
               </div>
-              <span className="font-mono text-lg font-semibold text-foreground">{stats.latitude.toFixed(2)}°</span>
+              <span className="font-mono text-lg font-semibold text-foreground">
+                {stats.latitude.toFixed(6)}°
+              </span>
             </div>
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-3">
                 <MapPin className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Longitud</span>
               </div>
-              <span className="font-mono text-lg font-semibold text-foreground">{stats.longitude.toFixed(2)}°</span>
+              <span className="font-mono text-lg font-semibold text-foreground">
+                {stats.longitude.toFixed(6)}°
+              </span>
             </div>
           </div>
         </Card>
