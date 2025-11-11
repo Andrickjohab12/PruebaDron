@@ -1,7 +1,8 @@
 "use client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+
 import {
   Battery,
   Wifi,
@@ -45,6 +46,12 @@ interface DroneStats {
 export function MonitorView() {
   const stats = useTelemetry()
   const weather = useWeather() // 🌦️ Hook del clima
+  const [elapsedTime, setElapsedTime] = useState(0) // segundos totales
+const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
 
   const getBatteryColor = (battery: number) => {
     if (battery > 50) return "text-green-500"
@@ -58,24 +65,105 @@ export function MonitorView() {
     return "text-gray-400"
   }
 
+  
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
+useEffect(() => {
+  if (isPlaying) {
+    timerRef.current = setInterval(() => {
+      setElapsedTime((prev) => prev + 1)
+    }, 1000)
+  } else if (timerRef.current) {
+    clearInterval(timerRef.current)
+  }
 
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  return () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
+}, [isPlaying])
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
+
+  // refs y estado adicionales para el video
+const [cameraStatus, setCameraStatus] = useState<string>("Esperando conexión...")
+const videoRef = useRef<HTMLVideoElement | null>(null)
+const videoContainerRef = useRef<HTMLDivElement | null>(null)
+
+// Función para entrar/salir fullscreen SOLO del contenedor de video
+const handleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    videoContainerRef.current?.requestFullscreen()
+    setIsFullscreen(true)
+  } else {
+    document.exitFullscreen()
+    setIsFullscreen(false)
+  }
+}
+
+// Inicia stream para la cámara "USB2.0 PC CAMERA"
+const startCameraStream = async (deviceId?: string) => {
+  try {
+    const constraints = deviceId
+      ? { video: { deviceId: { exact: deviceId } }, audio: false }
+      : { video: true, audio: false }
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream
+      await videoRef.current.play()
+      setIsPlaying(true)
+      setCameraStatus("🎥 Cámara del dron conectada ✅")
+    }
+  } catch (err) {
+    console.error("Error al acceder a la cámara:", err)
+    setCameraStatus("Error al conectar la cámara")
+  }
+}
+
+// Detener stream
+const stopCameraStream = () => {
+  if (videoRef.current && videoRef.current.srcObject) {
+    const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+    tracks.forEach((t) => t.stop())
+    videoRef.current.srcObject = null
+  }
+  setIsPlaying(false)
+  setCameraStatus("Esperando conexión...")
+}
+
+// Auto-detectar y conectar la cámara USB2.0 PC CAMERA al montar
+useEffect(() => {
+  let mounted = true
+  const init = async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      const cam = all.find(
+        (d) => d.kind === "videoinput" && d.label.toLowerCase().includes("usb2.0 pc camera")
+      )
+      if (!mounted) return
+      if (cam) {
+        // arranca el stream con el deviceId encontrado
+        await startCameraStream(cam.deviceId)
+      } else {
+        setCameraStatus("🔌 No se detectó la cámara del dron")
+      }
+    } catch (err) {
+      console.error("Error al buscar cámara:", err)
+      setCameraStatus("Error al buscar cámaras")
     }
   }
+  init()
+  return () => {
+    mounted = false
+    stopCameraStream()
+  }
+}, [])
+
+
+
 
   return (
     <div className="mx-auto max-w-[1800px] space-y-4 p-4 md:space-y-6 md:p-8">
@@ -258,44 +346,78 @@ export function MonitorView() {
         </Card>
       </div>
 
+
+
+
       <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
-        <Card className="overflow-hidden border-0 shadow-2xl">
-          <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800">
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <Activity className="mx-auto h-12 w-12 animate-pulse text-blue-400 md:h-16 md:w-16" />
-                <p className="mt-4 font-mono text-base text-blue-300 md:text-lg">Video Feed: Esperando conexión...</p>
-              </div>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 md:p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <Button
-                    size="lg"
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="gradient-blue shadow-lg hover:scale-105"
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-4 w-4 md:h-5 md:w-5" />
-                    ) : (
-                      <Play className="h-4 w-4 md:h-5 md:w-5" />
-                    )}
-                  </Button>
-                  <span className="rounded-lg bg-black/50 px-3 py-1.5 font-mono text-sm font-bold text-white backdrop-blur-sm md:px-4 md:py-2 md:text-lg">
-                    00:00:00
-                  </span>
-                </div>
-                <Button
-                  size="lg"
-                  onClick={handleFullscreen}
-                  className="bg-white/90 text-foreground shadow-lg hover:scale-105 hover:bg-white"
-                >
-                  <Maximize className="h-4 w-4 md:h-5 md:w-5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <div ref={videoContainerRef} className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800">
+  {/* video element */}
+  <video
+    ref={videoRef}
+    autoPlay
+    playsInline
+    muted
+    className="h-full w-full object-cover"
+  />
+
+  {/* overlay: cuando no está reproduciendo muestra estado (mantiene estilo) */}
+  {!isPlaying && (
+    <div className="absolute inset-0 flex h-full items-center justify-center">
+      <div className="text-center">
+        <Activity className="mx-auto h-12 w-12 animate-pulse text-blue-400 md:h-16 md:w-16" />
+        <p className="mt-4 font-mono text-base text-blue-300 md:text-lg">
+          {cameraStatus}
+        </p>
+      </div>
+    </div>
+  )}
+
+  {/* Controles inferiores (mantienen tus clases) */}
+  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 md:p-6">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 md:gap-3">
+        <Button
+          size="lg"
+          onClick={() => {
+            if (isPlaying) {
+              stopCameraStream()
+            } else {
+              // si ya hay stream iniciado por auto-detect, play() se encarga; de lo contrario intenta iniciar
+              if (videoRef.current && (videoRef.current.srcObject as MediaStream)) {
+                // si hay stream solo pausar/reanudar video HTML
+                const v = videoRef.current
+                if (v.paused) v.play()
+                else v.pause()
+                setIsPlaying(!v.paused)
+              } else {
+                startCameraStream()
+              }
+            }
+          }}
+          className="gradient-blue shadow-lg hover:scale-105"
+        >
+          {isPlaying ? <Pause className="h-4 w-4 md:h-5 md:w-5" /> : <Play className="h-4 w-4 md:h-5 md:w-5" />}
+        </Button>
+
+        <span className="rounded-lg bg-black/50 px-3 py-1.5 font-mono text-sm font-bold text-white backdrop-blur-sm md:px-4 md:py-2 md:text-lg">
+       {formatTime(elapsedTime)}
+
+        </span>
+      </div>
+
+      <Button
+        size="lg"
+        onClick={handleFullscreen}
+        className="bg-white/90 text-foreground shadow-lg hover:scale-105 hover:bg-white"
+      >
+        <Maximize className="h-4 w-4 md:h-5 md:w-5" />
+      </Button>
+    </div>
+  </div>
+</div>
+
+
+
 
         <Card className="border-0 bg-white p-6 shadow-xl md:p-8">
           <div className="mb-6 flex items-center gap-3">
